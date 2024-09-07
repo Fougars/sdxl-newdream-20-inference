@@ -1,19 +1,17 @@
-[build-system]
-requires = ["setuptools >= 61.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "edge-maxxing-4090-newdream"
 description = "An edge-maxxing model submission for the 4090 newdream contest"
-requires-python = ">=3.10,<3.11"
 version = "1.0.0"
-dependencies = [
-    "diffusers==0.30.2",
-    "transformers==4.41.2",
-    "accelerate==0.31.0",
-    "omegaconf==2.3.0",
-    "edge-maxxing-pipelines @ git+https://github.com/womboai/edge-maxxing@docker-submissions#subdirectory=pipelines",
-]
+authors = ["fougars <lucasschwirtz@gmail.com>"]
+python = ">=3.10,<3.11"
 
-[project.scripts]
-start_inference = "main:main"
+[tool.poetry.dependencies]
+diffusers = "0.30.2"
+transformers = "4.41.2"
+accelerate = "0.31.0"
+omegaconf = "2.3.0"
+edge-maxxing-pipelines = { git = "https://github.com/womboai/edge-maxxing", rev = "docker-submissions", subdirectory = "pipelines" }
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
