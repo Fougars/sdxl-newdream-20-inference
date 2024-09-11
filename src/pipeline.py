@@ -20,7 +20,8 @@ def load_pipeline() -> StableDiffusionXLPipeline:
 
     # Optimization: Enable memory efficient attention
     try:
-        pipeline.enable_xformers_memory_efficient_attention()
+        if hasattr(pipeline, "enable_xformers_memory_efficient_attention"):
+            pipeline.enable_xformers_memory_efficient_attention()
     except Exception as e:
         print(f"Warning: Could not enable xformers memory efficient attention: {e}")
 
@@ -37,6 +38,12 @@ def load_pipeline() -> StableDiffusionXLPipeline:
     # Optimization: Enable VAE slicing
     pipeline.enable_vae_slicing()
 
+    # Optimization: Use CUDA graphs for faster inference
+    try:
+        pipeline.enable_cuda_graph()
+    except Exception as e:
+        print(f"Warning: Could not enable CUDA graph: {e}")
+
     # Warming up the model with an empty prompt to reduce future latency
     pipeline(prompt="")
 
@@ -51,13 +58,16 @@ def infer(request: TextToImageRequest, pipeline: StableDiffusionXLPipeline) -> I
         return prompt_cache[cache_key]
 
     generator = Generator(pipeline.device).manual_seed(request.seed) if request.seed else None
-    image = pipeline(
-        prompt=request.prompt,
-        negative_prompt=request.negative_prompt,
-        width=request.width,
-        height=request.height,
-        generator=generator,
-    ).images[0]
+
+    with torch.inference_mode(), torch.cuda.amp.autocast():
+        image = pipeline(
+            prompt=request.prompt,
+            negative_prompt=request.negative_prompt,
+            width=request.width,
+            height=request.height,
+            generator=generator,
+            num_inference_steps=30,  # Reduced for faster inference
+        ).images[0]
 
     prompt_cache[cache_key] = image
     return image
@@ -72,12 +82,14 @@ def infer_batch(requests: List[TextToImageRequest], pipeline: StableDiffusionXLP
 
     generators = [Generator(pipeline.device).manual_seed(seed) if seed else None for seed in seeds]
 
-    images = pipeline(
-        prompt=prompts,
-        negative_prompt=negative_prompts,
-        width=widths,
-        height=heights,
-        generator=generators,
-    ).images
+    with torch.inference_mode(), torch.cuda.amp.autocast():
+        images = pipeline(
+            prompt=prompts,
+            negative_prompt=negative_prompts,
+            width=widths,
+            height=heights,
+            generator=generators,
+            num_inference_steps=30,  # Reduced for faster inference
+        ).images
 
     return images
